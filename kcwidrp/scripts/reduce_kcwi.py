@@ -214,7 +214,7 @@ def main():
 
     if args.stage is None:
         from kcwidrp.pipelines.kcwi_pipeline import Kcwi_pipeline
-        print("Defualt Full Reduction")
+        print("Default Full Reduction")
     elif args.stage=="1":
         from kcwidrp.pipelines.kcwi_pipeline1 import Kcwi_pipeline
         print("Phase 1: IDL Stage 1-5")
