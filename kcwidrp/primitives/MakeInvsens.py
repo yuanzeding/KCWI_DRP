@@ -97,6 +97,23 @@ class MakeInvsens(BasePrimitive):
             self.logger.warning("Not processed enough to generate "
                                 "inverse sensitivity")
             return False
+        
+    def polyfit_sigmarej(self, x, y, deg=1, w=None, Nsig=3, Niter=10):
+        # perform iterative sigmaclipping on np.polyfit to remove cosmic rays
+        if w is None:
+            w = np.ones_like(x)
+
+        good = np.ones_like(x, dtype=bool)
+        for i in range(Niter):
+            res = np.polyfit(x[good], y[good], deg=deg, w=w[good])
+            val = np.polyval(res, x)
+            std = np.std(val[good] - y[good])
+            bad = (np.abs(val - y) > std * Nsig)
+            if np.sum(good[bad])==0:
+                break
+            good[bad] = False
+
+        return res
 
     def _perform(self):
         self.logger.info("Making inverse sensitivity curve")
@@ -530,13 +547,13 @@ class MakeInvsens(BasePrimitive):
 
         # initial polynomial fit of inverse sensitivity
         wf0 = np.min(wf)
-        res = np.polyfit(wf-wf0, sf, deg=ford, w=mw)
+        res = self.polyfit_sigmarej(wf-wf0, sf, deg=ford, w=mw)
         finvsen = np.polyval(res, w-wf0)
         sinvsen = np.polyval(res, wf-wf0)
         calspec = obsspec * finvsen
         scalspec = bf * sinvsen
         # initial polynomial fit of effective area
-        res = np.polyfit(wf-wf0, af, ford, w=mw)
+        res = self.polyfit_sigmarej(wf-wf0, af, ford, w=mw)
         fearea = np.polyval(res, w-wf0)
         # calculate residuals
         resid = 100.0 * (scalspec - rf) / rf
@@ -659,13 +676,13 @@ class MakeInvsens(BasePrimitive):
                         try:
                             ford = int(qstr)
                             # update fit of inverse sensitivity
-                            res = np.polyfit(wf - wf0, sf, deg=ford, w=mw)
+                            res = self.polyfit_sigmarej(wf - wf0, sf, deg=ford, w=mw)
                             finvsen = np.polyval(res, w - wf0)
                             sinvsen = np.polyval(res, wf - wf0)
                             calspec = obsspec * finvsen
                             scalspec = bf * sinvsen
                             # update polynomial fit of effective area
-                            res = np.polyfit(wf - wf0, af, ford, w=mw)
+                            res = self.polyfit_sigmarej(wf - wf0, af, ford, w=mw)
                             fearea = np.polyval(res, w - wf0)
                             # re-calculate residuals
                             resid = 100.0 * (scalspec - rf) / rf
