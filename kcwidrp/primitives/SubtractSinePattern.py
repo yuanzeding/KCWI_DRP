@@ -1,5 +1,5 @@
 from keckdrpframework.primitives.base_primitive import BasePrimitive
-from kcwidrp.primitives.kcwi_file_primitives import kcwi_fits_writer
+from kcwidrp.primitives.kcwi_file_primitives import kcwi_fits_writer, kcwi_fits_reader
 from kcwidrp.core.bokeh_plotting import bokeh_plot
 from kcwidrp.core.kcwi_plotting import save_plot
 
@@ -8,6 +8,7 @@ import numpy as np
 from scipy.signal import savgol_filter
 from scipy.optimize import curve_fit
 import time
+import os
 
 
 class SubtractSinePattern(BasePrimitive):
@@ -19,8 +20,6 @@ class SubtractSinePattern(BasePrimitive):
 
     def _pre_condition(self):
         if self.action.args.ccddata.header['CAMERA'] == 'RED':
-            return False        
-        if self.config.instrument.subtract_sine is False:
             return False
 
         return True
@@ -544,11 +543,25 @@ class SubtractSinePattern(BasePrimitive):
         # Header keyword to update
         key = 'SINESUB'
         keycom = "was sine pattern subtracted?"
+        suffix = 'ins'
+
+        out_file = os.path.join(self.config.instrument.output_directory, \
+            os.path.basename(self.action.args.name))
+        if suffix is not None:
+            (main_name, extension) = os.path.splitext(out_file)
+        out_file = main_name + "_" + suffix + extension
 
         # Skip if requested
-        if self.config.instrument.skipsine:
+        if not self.config.instrument.subtract_sine:
             self.logger.info("Skipping sine-pattern subtraction by request")
             self.action.args.ccddata.header[key] = (False, keycom)
+
+            return self.action.args
+        elif os.path.isfile(out_file) and not self.config.instrument.clobber:
+            self.logger.info(f"Reading existing file: {out_file}")
+            self.action.ccddata = kcwi_fits_reader(out_file)[0]
+
+            return self.action.args
         else:
             # perform
 
@@ -585,7 +598,7 @@ class SubtractSinePattern(BasePrimitive):
                          output_dir=self.config.instrument.output_directory,
                          suffix="ins")
         self.context.proctab.update_proctab(frame=self.action.args.ccddata,
-                                            suffix="ins",
+                                            suffix=suffix,
                                             filename=self.action.args.name)
         self.context.proctab.write_proctab(tfil=self.config.instrument.procfile)
 
