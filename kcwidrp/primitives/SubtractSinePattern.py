@@ -19,9 +19,6 @@ class SubtractSinePattern(BasePrimitive):
         self.logger = context.pipeline_logger
 
     def _pre_condition(self):
-        if self.action.args.ccddata.header['CAMERA'] == 'RED':
-            return False
-
         return True
 
     def sec2slice(self, subarray, one_indexed=False, include_end=False, require_dim=None, binning=None):
@@ -552,6 +549,8 @@ class SubtractSinePattern(BasePrimitive):
         out_file = main_name + "_" + suffix + extension
 
         # Skip if requested
+        if self.action.args.ccddata.header['CAMERA'] == 'RED':
+            return self.action.args
         if not self.config.instrument.subtract_sine:
             self.logger.info("Skipping sine-pattern subtraction by request")
             self.action.args.ccddata.header[key] = (False, keycom)
