@@ -48,7 +48,7 @@ class RemoveCosmicRays(BasePrimitive):
         if nshuf * ttime > exptime:
             exptime = nshuf * ttime
 
-        if self.config.instrument.crmsk == False:
+        if (self.config.instrument.crmsk == False) or ('BLUE' in self.action.args.ccddata.header['CAMERA'].upper()):
             self.logger.inffo('No custom CR mask, proceeding with astroscrappy')
             if exptime >= self.config.instrument.CRR_MINEXPTIME:
 
