@@ -49,7 +49,7 @@ class RemoveCosmicRays(BasePrimitive):
             exptime = nshuf * ttime
 
         if (self.config.instrument.crmsk == False) or ('BLUE' in self.action.args.ccddata.header['CAMERA'].upper()):
-            self.logger.inffo('No custom CR mask, proceeding with astroscrappy')
+            self.logger.info('No custom CR mask, proceeding with astroscrappy')
             if exptime >= self.config.instrument.CRR_MINEXPTIME:
 
                 namps = header['NVIDINP']
