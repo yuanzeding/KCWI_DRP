@@ -66,11 +66,7 @@ setup(name=NAME,
                         'pytest~=5.4.1',
                         'keckdrpframework',
                         'requests',
-<<<<<<< HEAD
                         'pandas~=1.5.3',
-=======
-                        'pandas~=1.0.3',
->>>>>>> df94ea291ef172e561595b162e8aa30922b40924
                         'matplotlib~=3.7',
                         'ref_index~=1.0',
                         'pyregion~=2.0',
