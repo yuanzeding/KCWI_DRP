@@ -19,7 +19,7 @@ from multiprocessing import Pool
 def make_cube_helper(argument):
     """
     Warp each slice.
-    
+
     Helper program for threaded warping of all slices.
 
     Args:
@@ -68,29 +68,31 @@ def make_cube_helper(argument):
     else:
         slice_del = None
     # do the warping
-    warped = tf.warp(slice_img, tform, order=3,
+    warped = tf.warp(slice_img, tform, order=argument['order'],
                      output_shape=(ysize, xsize))
-    uarped = tf.warp(slice_unc, tform, order=3,
+    uarped = tf.warp(slice_unc, tform, order=argument['order'],
                      output_shape=(ysize, xsize))
     marped = tf.warp(slice_msk, tform, order=0,
-                     output_shape=(ysize, xsize))
+                     output_shape=(ysize, xsize),
+                     mode='constant', cval=1)
     farped = tf.warp(slice_flg, tform, order=0,
-                     output_shape=(ysize, xsize), preserve_range=True)
+                     output_shape=(ysize, xsize), preserve_range=True,
+                     mode='constant', cval=64)
 
     if slice_nsk is not None:
-        karped = tf.warp(slice_nsk, tform, order=3,
+        karped = tf.warp(slice_nsk, tform, order=argument['order'],
                          output_shape=(ysize, xsize))
     else:
         karped = None
 
     if slice_obj is not None:
-        oarped = tf.warp(slice_obj, tform, order=3,
+        oarped = tf.warp(slice_obj, tform, order=argument['order'],
                          output_shape=(ysize, xsize))
     else:
         oarped = None
 
     if slice_sky is not None:
-        sarped = tf.warp(slice_sky, tform, order=3,
+        sarped = tf.warp(slice_sky, tform, order=argument['order'],
                          output_shape=(ysize, xsize))
     else:
         sarped = None
@@ -229,7 +231,8 @@ class MakeCube(BasePrimitive):
                     'flg': data_flg,
                     'xsize': xsize,
                     'ysize': ysize,
-                    'logger': self.logger
+                    'logger': self.logger,
+                    'order': self.config.instrument.warp_order
                 }
                 if data_nsk is not None:
                     arguments['nsk'] = data_nsk
@@ -240,6 +243,13 @@ class MakeCube(BasePrimitive):
                 if dew is not None:
                     arguments['del'] = data_dew
                 my_arguments.append(arguments)
+
+            self.logger.info(f"Image cube order = {arguments['order']}")
+            self.logger.info(f"Std. Dev. cube order = {arguments['order']}")
+            self.logger.info(f"Mask cube order = 1")
+            self.logger.info(f"Flag cube order = 1")
+
+            self.action.args.ccddata.header['WARPOD'] = arguments['order']
 
             p = Pool()
             results = p.map(make_cube_helper, list(my_arguments))

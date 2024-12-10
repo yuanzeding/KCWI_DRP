@@ -115,6 +115,7 @@ class WavelengthCorrections(BasePrimitive):
         cwave_vac = wave_vac[int(wave_vac.shape[0] / 2)]
         self.logger.info("Air to Vacuum for (%.3f) gives %.3f" %
                          (cwave_air.value, cwave_vac.value))
+        self.logger.info("Interpolating using {0}".format(self.config.instrument.wave_interp_order))
 
         # resample to uniform grid
         cube_new = np.zeros_like(cube)
@@ -126,7 +127,7 @@ class WavelengthCorrections(BasePrimitive):
                     f_cubic = interp1d(
                         wave_vac,
                         spec0,
-                        kind='cubic',
+                        kind=self.config.instrument.wave_interp_order,
                         fill_value='extrapolate'
                         )
                     spec_new = f_cubic(wave_air)
@@ -279,6 +280,7 @@ class WavelengthCorrections(BasePrimitive):
         cwave_hel = self.action.args.cwave * (1 + v_tot / 2.99792458e5)
         self.logger.info("Vcorr for CWAVE (%.3f) gives %.3f" %
                          (self.action.args.cwave, cwave_hel))
+        self.logger.info("Interpolating using {0}".format(self.config.instrument.wave_interp_order))
 
         # resample to uniform grid
         self.logger.info("Resampling to uniform grid")
@@ -288,7 +290,7 @@ class WavelengthCorrections(BasePrimitive):
 
                 spc0 = cube[:, j, i]
                 if not mask:
-                    f_cubic = interp1d(wav_hel, spc0, kind='cubic',
+                    f_cubic = interp1d(wav_hel, spc0, kind=self.config.instrument.wave_interp_order,
                                        fill_value='extrapolate')
                     spec_new = f_cubic(wav_old)
 

@@ -91,7 +91,10 @@ class CorrectDar(BasePrimitive):
         waves = w0 + np.arange(image_size[0]) * dw
         wgoo0 = self.action.args.ccddata.header['WAVGOOD0']
         wgoo1 = self.action.args.ccddata.header['WAVGOOD1']
-        wref = self.action.args.ccddata.header['WAVMID']
+        if self.config.instrument.DAR_wref == 'None':
+            wref = self.action.args.ccddata.header['WAVMID']
+        else:
+            wref = self.config.instrument.DAR_wref
         self.logger.info("Ref WL = %.1f, good WL range = (%.1f - %.1f)" %
                          (wref, wgoo0, wgoo1))
 
@@ -238,6 +241,10 @@ class CorrectDar(BasePrimitive):
                 output_del[:, padding_y:(padding_y + image_size[1]),
                            padding_x:(padding_x + image_size[2])] = dew.data
 
+        self.logger.info(f"Image cube DAR order = {self.config.instrument.DAR_shift_order}")
+        self.logger.info(f"Std. Dev. cube DAR order = {self.config.instrument.DAR_shift_order}")
+        self.logger.info(f"Mask cube DAR order = 1 (constant)")
+        self.logger.info(f"Flag cube DAR order = 1 (constant)")
         # Perform correction
         for j, wl in enumerate(waves):
             dispersion_correction = atm_disper(wref, wl, airmass)
@@ -246,16 +253,20 @@ class CorrectDar(BasePrimitive):
             y_shift = dispersion_correction * \
                 math.cos(projection_angle) / y_scale
             output_image[j, :, :] = shift(output_image[j, :, :],
-                                          (y_shift, x_shift))
+                                          (y_shift, x_shift), order=self.config.instrument.DAR_shift_order)
             output_stddev[j, :, :] = shift(output_stddev[j, :, :],
-                                           (y_shift, x_shift))
-            output_mask[j, :, :] = shift(output_mask[j, :, :],
-                                         (y_shift, x_shift))
-            output_flags[j, :, :] = shift(output_flags[j, :, :],
-                                          (y_shift, x_shift))
+                                           (y_shift, x_shift), order=self.config.instrument.DAR_shift_order)
+            # output_mask[j, :, :] = shift(output_mask[j, :, :],
+            #                              (y_shift, x_shift), order=1, mode='constant', cval=128)
+            # output_flags[j, :, :] = shift(output_flags[j, :, :],
+            #                               (y_shift, x_shift), order=1, mode='constant', cval=128)
+            output_mask[j, :, :] = np.ceil(shift(output_mask[j, :, :], 
+                (y_shift, x_shift), order=1, mode = 'constant', cval=128))
+            output_flags[j, :, :] = np.ceil(shift(output_flags[j, :, :], 
+                (y_shift, x_shift), order=1, mode = 'constant', cval=128))
             if output_noskysub is not None:
                 output_noskysub[j, :, :] = shift(output_noskysub[j, :, :],
-                                                 (y_shift, x_shift))
+                    (y_shift, x_shift), order=self.config.instrument.DAR_shift_order)
         # for obj, sky if they exist
         if output_obj is not None:
             for j, wl in enumerate(waves):
@@ -265,7 +276,7 @@ class CorrectDar(BasePrimitive):
                 y_shift = dispersion_correction * \
                     math.cos(projection_angle) / y_scale
                 output_obj[j, :, :] = shift(output_obj[j, :, :],
-                                            (y_shift, x_shift))
+                    (y_shift, x_shift), order=self.config.instrument.DAR_shift_order)
 
         if output_sky is not None:
             for j, wl in enumerate(waves):
@@ -275,7 +286,7 @@ class CorrectDar(BasePrimitive):
                 y_shift = dispersion_correction * \
                     math.cos(projection_angle) / y_scale
                 output_sky[j, :, :] = shift(output_sky[j, :, :],
-                                            (y_shift, x_shift))
+                    (y_shift, x_shift), order=self.config.instrument.DAR_shift_order)
 
         # for delta wavelength cube, if it exists
         if output_del is not None:
@@ -308,6 +319,8 @@ class CorrectDar(BasePrimitive):
                                                       'DAR Y padding (pix)')
         self.action.args.ccddata.header['DAREFWL'] = (wref,
                                                       'DAR reference wl (Ang)')
+        self.action.args.ccddata.header['DARORD'] = (self.config.instrument.DAR_shift_order,
+                                                      'DAR shift order')
         # write out corrected image
         kcwi_fits_writer(self.action.args.ccddata,
                          table=self.action.args.table,

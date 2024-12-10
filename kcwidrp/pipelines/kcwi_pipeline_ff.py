@@ -257,13 +257,13 @@ class Kcwi_pipeline(BasePipeline):
         "object_make_master":        ("MakeMasterObject",
                                       "master_object_started",      # mobj
                                       "object_make_sky"),
-        "object_make_sky":           ("MakeMasterSky",
-                                      "making_master_sky_started",
-                                      "object_subtract_sky"),
-        "object_subtract_sky":       ("SubtractSky",
-                                      "subtracting_sky_started",    # intk
-                                      None),
-        "next_file_stop":            ("ingest_file", "file_ingested", None)
+        # "object_make_sky":           ("MakeMasterSky",
+        #                               "making_master_sky_started",
+        #                               "object_subtract_sky"),
+        # "object_subtract_sky":       ("SubtractSky",
+        #                               "subtracting_sky_started",    # intk
+        #                               None),
+        # "next_file_stop":            ("ingest_file", "file_ingested", None)
         }
 
     # event_table = kcwi_event_table
