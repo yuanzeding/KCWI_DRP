@@ -1,10 +1,11 @@
+#!/usr/bin/env python
+
 from astropy.io import fits as pf
 from regions import Regions
 
 import numpy as np
 import sys
 import os
-
 
 def main():
     """Creates mask image from ds9 region file.
@@ -66,6 +67,7 @@ def main():
     # load the header from the pointed-to image.
     hdu_list = pf.open(imfname)
     header = hdu_list[0].header
+    shape = hdu_list[0].shape
 
     # load the region file
     with open(regfname, 'r') as f:
@@ -73,19 +75,17 @@ def main():
         regstr = f.read()
         
         # Check if the region file is in physical coordinates
-        if 'physical' not in regstr:
-            print("Region file must be in physical coordinates")
-            exit()
-        
-        # 
-        regstr.replace('physical', '')
+        if 'physical' in regstr:
+            print("[Warning] 'physical' coordinates not supported by regions. Replacing with 'image'")
+            regstr = regstr.replace('physical', 'image')
+
         r = Regions.parse(regstr, format='ds9')
         mask = None
         for region in r.regions:
             if mask is None:
-                mask = region.to_mask()
+                mask = region.to_mask().to_image(shape).astype(bool)
             else:
-                mask = mask | region.to_mask()
+                mask = mask | region.to_mask().to_image(shape).astype(bool)
 
     # write out the mask
     hdu = pf.PrimaryHDU(np.uint8(mask))
