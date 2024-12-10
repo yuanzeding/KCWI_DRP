@@ -72,10 +72,10 @@ def make_cube_helper(argument):
                      output_shape=(ysize, xsize))
     uarped = tf.warp(slice_unc, tform, order=argument['order'],
                      output_shape=(ysize, xsize))
-    marped = tf.warp(slice_msk.astype(float), tform, order=1,
+    marped = tf.warp(slice_msk, tform, order=0,
                      output_shape=(ysize, xsize),
                      mode='constant', cval=1)
-    farped = tf.warp(slice_flg, tform, order=1,
+    farped = tf.warp(slice_flg, tform, order=0,
                      output_shape=(ysize, xsize), preserve_range=True,
                      mode='constant', cval=64)
 
