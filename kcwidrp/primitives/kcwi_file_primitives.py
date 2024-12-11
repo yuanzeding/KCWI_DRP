@@ -1245,7 +1245,7 @@ def kcwi_fits_writer(ccddata, table=None, output_file=None, output_dir=None,
     if nskysb is not None:
         if ccddata.noskysub.dtype == np.float64:
             ccddata.noskysub = ccddata.noskysub.astype(np.float32)
-        hdus_to_save.append(fits.ImageHDU(nskysb, name='NOSKYSUB'))
+        hdus_to_save.append(fits.ImageHDU(ccddata.noskysub, name='NOSKYSUB'))
     # something about the way the original table is written out is wrong
     # and causes problems.  Leaving it off for now.
     # if table is not None:
