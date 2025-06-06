@@ -384,6 +384,8 @@ def main():
         framework.config.instrument.oscanbuf = int(
             kcwi_config.BLUE['oscanbuf'])
     elif args.red:
+        framework.config.instrument.crmsk = kcwi_config.RED['crmsk']
+        framework.config.instrument.extra_CRR = kcwi_config.RED['extra_crr']
         framework.config.instrument.arc_min_nframes = int(
             kcwi_config.RED['arc_min_nframes'])
         framework.config.instrument.contbars_min_nframes = int(

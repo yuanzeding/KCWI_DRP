@@ -74,14 +74,14 @@ class SubtractScatteredLight(BasePrimitive):
             xvals = np.arange(len(yvals), dtype=np.float)
             # filter window
             fwin = 151
-            scat = savgol_filter(yvals, fwin, 3)
+            scat = savgol_filter(yvals, fwin, 6)
             signal_to_noise = np.mean(scat) / np.nanstd(yvals - scat)
             if signal_to_noise < 25.:
                 if signal_to_noise < 5:
                     fwin = 501
                 else:
                     fwin = 303
-                scat = savgol_filter(yvals, fwin, 3)
+                scat = savgol_filter(yvals, fwin, 5)
                 signal_to_noise = np.mean(scat) / np.nanstd(yvals - scat)
             self.logger.info("Smoothing scattered light with window of %d px"
                              % fwin)

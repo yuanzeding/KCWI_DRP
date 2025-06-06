@@ -1,6 +1,6 @@
 from keckdrpframework.primitives.base_primitive import BasePrimitive
 from kcwidrp.primitives.kcwi_file_primitives import kcwi_fits_writer
-
+from regions import Regions
 import numpy as np
 from astroscrappy import detect_cosmics
 import os
@@ -47,8 +47,8 @@ class RemoveCosmicRays(BasePrimitive):
         ttime = header['TTIME']
         if nshuf * ttime > exptime:
             exptime = nshuf * ttime
-
-        if (self.config.instrument.crmsk == False) or ('BLUE' in self.action.args.ccddata.header['CAMERA'].upper()):
+        #self.logger.info(f"CRMSK:{self.config.instrument.crmsk}")
+        if (self.config.instrument.crmsk == "False") or ('BLUE' in self.action.args.ccddata.header['CAMERA'].upper()):
             self.logger.info('No custom CR mask, proceeding with astroscrappy')
             if exptime >= self.config.instrument.CRR_MINEXPTIME:
 
@@ -73,12 +73,25 @@ class RemoveCosmicRays(BasePrimitive):
                         sigclip = 10.
                     else:
                         sigclip = 7.
+                bcrinmask=None
                 if 'OBJECT' in self.action.args.ccddata.header['IMTYPE']:
                     if self.action.args.ccddata.header['TTIME'] < 300.:
                         sigclip = 10.
+                    if (self.config.instrument.bcrmsk == True):
+                        bcrmskName = self.action.args.name.replace('.fits', '_intf_bcrmsk.fits')
+                        if os.path.isfile(f"{self.config.instrument.output_directory}/{bcrmskName}"):
+                            self.logger.info(f'Opening {bcrmskName}')
+                            bcr = fits.open(f"{self.config.instrument.output_directory}/{bcrmskName}")
+                            bcrinmask = bcr[0].data # this is the mask
+                            ind = (bcrinmask == 1)
+                            bcrinmask[ind] = True
+                            bcrinmask[~ind] = False
+                            print('BLUE CR INMASK INPUTTED')
+                        else:
+                            self.logger.info(f'No Blue CR INMASK found')
 
                 mask, clean = detect_cosmics(
-                    self.action.args.ccddata.data, gain=1.0, readnoise=read_noise,
+                    self.action.args.ccddata.data,inmask=bcrinmask, gain=1.0, readnoise=read_noise,
                     psffwhm=self.config.instrument.CRR_PSFFWHM,
                     sigclip=sigclip,
                     sigfrac=self.config.instrument.CRR_SIGFRAC,
@@ -144,6 +157,35 @@ class RemoveCosmicRays(BasePrimitive):
                 self.logger.info("CR mask cleaned cosmic rays")
                 header['history'] = f"{crmskName} cleaned cosmic rays"
 
+                # have recovery file?
+                crmskRecName = self.action.args.name.replace('.fits', '_crmsk_recover.reg')
+                if os.path.isfile(f"{self.config.instrument.output_directory}/{crmskRecName}"):
+                    self.logger.info(f'CR mask recoverty file detected, opening {crmskRecName}')
+                    # load the region file
+                    with open(f"{self.config.instrument.output_directory}/{crmskRecName}", 'r') as f:
+                        # Read it out as a string
+                        regstr = f.read()
+                        
+                        # Check if the region file is in physical coordinates
+                        if 'physical' in regstr:
+                            self.logger.info("[Warning] 'physical' coordinates detected in the recovery file. Replacing with 'image'")
+                            regstr = regstr.replace('physical', 'image')
+
+                        r = Regions.parse(regstr, format='ds9')
+                        crRec = None
+                        for region in r.regions:
+                            if crRec is None:
+                                crRec = region.to_mask().to_image(crmsk.shape).astype(bool)
+                            else:
+                                crRec = crRec | region.to_mask().to_image(crmsk.shape).astype(bool)
+                    
+                    if crRec is not None:
+                        Ncr = np.sum(crmsk)
+                        NcrRec = np.sum((crmsk != 0) & crRec)
+                        crmsk[crRec] = 0
+                        self.logger.info(f"Recovered {NcrRec}/{Ncr} CR pixels")
+                        header['history'] = f"{crmskRecName} recovered cosmic rays"
+                
                 self.action.args.ccddata.flags[crmsk > 1e-3] += 4
 
                 # replace CR pixels by median values
@@ -184,54 +226,56 @@ class RemoveCosmicRays(BasePrimitive):
                     if self.action.args.ccddata.header['TTIME'] < 300.:
                         sigclip = 10.
 
-                mask, clean = detect_cosmics(
-                    self.action.args.ccddata.data, gain=1.0, readnoise=read_noise,
-                    psffwhm=self.config.instrument.CRR_PSFFWHM,
-                    sigclip=sigclip,
-                    sigfrac=self.config.instrument.CRR_SIGFRAC,
-                    objlim=self.config.instrument.CRR_OBJLIM,
-                    fsmode=self.config.instrument.CRR_FSMODE,
-                    psfmodel=self.config.instrument.CRR_PSFMODEL,
-                    verbose=self.config.instrument.CRR_VERBOSE,
-                    sepmed=self.config.instrument.CRR_SEPMED,
-                    cleantype=self.config.instrument.CRR_CLEANTYPE,
-                    niter = self.config.instrument.CRR_NITER)
+                if self.config.instrument.extra_CRR == "True":
+                    self.logger.info("Astroscrappy: running extra CRR")
+                    mask, clean = detect_cosmics(
+                        self.action.args.ccddata.data, gain=1.0, readnoise=read_noise,
+                        psffwhm=self.config.instrument.CRR_PSFFWHM,
+                        sigclip=sigclip,
+                        sigfrac=self.config.instrument.CRR_SIGFRAC,
+                        objlim=self.config.instrument.CRR_OBJLIM,
+                        fsmode=self.config.instrument.CRR_FSMODE,
+                        psfmodel=self.config.instrument.CRR_PSFMODEL,
+                        verbose=self.config.instrument.CRR_VERBOSE,
+                        sepmed=self.config.instrument.CRR_SEPMED,
+                        cleantype=self.config.instrument.CRR_CLEANTYPE,
+                        niter = self.config.instrument.CRR_NITER)
 
-                self.logger.info("Astroscrappy: cleaned cosmic rays")
-                header['history'] = "Astroscrappy: cleaned cosmic rays"
-                header['history'] = \
-                    "Astroscrappy params: sigclip=%5.2f sigfrac=%5.2f " \
-                    "objlim=%5.2f" % (
-                    self.config.instrument.CRR_SIGCLIP,
-                    self.config.instrument.CRR_SIGFRAC,
-                    self.config.instrument.CRR_OBJLIM)
-                header['history'] = \
-                    "Astroscrappy params: fsmode=%s psfmodel=%s psffwhm=%5.2f" % (
-                    self.config.instrument.CRR_FSMODE,
-                    self.config.instrument.CRR_PSFMODEL,
-                    self.config.instrument.CRR_PSFFWHM)
-                header['history'] = "Astroscrappy params: sepmed=%s minexptime=%f" % (
-                    self.config.instrument.CRR_SEPMED,
-                    self.config.instrument.CRR_MINEXPTIME)
-                # header['history'] = "LA CosmicX run on %s" % time.strftime("%c")
+                    self.logger.info("Astroscrappy: cleaned cosmic rays")
+                    header['history'] = "Astroscrappy: cleaned cosmic rays"
+                    header['history'] = \
+                        "Astroscrappy params: sigclip=%5.2f sigfrac=%5.2f " \
+                        "objlim=%5.2f" % (
+                        self.config.instrument.CRR_SIGCLIP,
+                        self.config.instrument.CRR_SIGFRAC,
+                        self.config.instrument.CRR_OBJLIM)
+                    header['history'] = \
+                        "Astroscrappy params: fsmode=%s psfmodel=%s psffwhm=%5.2f" % (
+                        self.config.instrument.CRR_FSMODE,
+                        self.config.instrument.CRR_PSFMODEL,
+                        self.config.instrument.CRR_PSFFWHM)
+                    header['history'] = "Astroscrappy params: sepmed=%s minexptime=%f" % (
+                        self.config.instrument.CRR_SEPMED,
+                        self.config.instrument.CRR_MINEXPTIME)
+                    # header['history'] = "LA CosmicX run on %s" % time.strftime("%c")
 
-                # update arrays
-                mask = np.cast["bool"](mask)
-                fmask = np.where(mask)
-                try:
-                    self.action.args.ccddata.flags[fmask] += 4
-                except AttributeError:
-                    self.logger.warning("Flags array not found!")
-                if 'n_crs' in locals():
-                    n_crs += mask.sum()
-                else:
-                    n_crs = mask.sum()
-                # DN 2023-may-28: commenting out mask update because it causes bad things
-                # self.action.args.ccddata.mask += mask
-                self.action.args.ccddata.data = clean
+                    # update arrays
+                    mask = np.cast["bool"](mask)
+                    fmask = np.where(mask)
+                    try:
+                        self.action.args.ccddata.flags[fmask] += 4
+                    except AttributeError:
+                        self.logger.warning("Flags array not found!")
+                    if 'n_crs' in locals():
+                        n_crs += mask.sum()
+                    else:
+                        n_crs = mask.sum()
+                    # DN 2023-may-28: commenting out mask update because it causes bad things
+                    # self.action.args.ccddata.mask += mask
+                    self.action.args.ccddata.data = clean
                 # update header
-                header[key] = (True, keycom)
-                header['NCRCLEAN'] = (n_crs, "number of cosmic ray pixels")
+                    header[key] = (True, keycom)
+                    header['NCRCLEAN'] = (n_crs, "number of cosmic ray pixels")
 
             else:
                 self.logger.info(f'Cannot find file {crmskName}')
