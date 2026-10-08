@@ -241,12 +241,24 @@ class CorrectDar(BasePrimitive):
                 output_del[:, padding_y:(padding_y + image_size[1]),
                            padding_x:(padding_x + image_size[2])] = dew.data
 
+        # DAR_apply = False leaves science cubes unshifted (padding and DAR
+        # keywords are still written) so DAR can be applied when stacking;
+        # standard stars are always corrected for the sensitivity curve.
+        apply_dar = getattr(self.config.instrument, 'DAR_apply', True) or \
+            stdfile is not None
+        if apply_dar:
+            dar_waves = waves
+        else:
+            dar_waves = []
+            self.logger.info("DAR_apply = False: skipping DAR shift, "
+                             "writing DAR keywords only")
+
         self.logger.info(f"Image cube DAR order = {self.config.instrument.DAR_shift_order}")
         self.logger.info(f"Std. Dev. cube DAR order = {self.config.instrument.DAR_shift_order}")
         self.logger.info(f"Mask cube DAR order = 1 (constant)")
         self.logger.info(f"Flag cube DAR order = 1 (constant)")
         # Perform correction
-        for j, wl in enumerate(waves):
+        for j, wl in enumerate(dar_waves):
             dispersion_correction = atm_disper(wref, wl, airmass)
             x_shift = dispersion_correction * \
                 math.sin(projection_angle) / x_scale
@@ -269,7 +281,7 @@ class CorrectDar(BasePrimitive):
                     (y_shift, x_shift), order=self.config.instrument.DAR_shift_order)
         # for obj, sky if they exist
         if output_obj is not None:
-            for j, wl in enumerate(waves):
+            for j, wl in enumerate(dar_waves):
                 dispersion_correction = atm_disper(wref, wl, airmass)
                 x_shift = dispersion_correction * \
                     math.sin(projection_angle) / x_scale
@@ -279,7 +291,7 @@ class CorrectDar(BasePrimitive):
                     (y_shift, x_shift), order=self.config.instrument.DAR_shift_order)
 
         if output_sky is not None:
-            for j, wl in enumerate(waves):
+            for j, wl in enumerate(dar_waves):
                 dispersion_correction = atm_disper(wref, wl, airmass)
                 x_shift = dispersion_correction * \
                     math.sin(projection_angle) / x_scale
@@ -290,7 +302,7 @@ class CorrectDar(BasePrimitive):
 
         # for delta wavelength cube, if it exists
         if output_del is not None:
-            for j, wl in enumerate(waves):
+            for j, wl in enumerate(dar_waves):
                 dispersion_correction = atm_disper(wref, wl, airmass)
                 x_shift = dispersion_correction * \
                     math.sin(projection_angle) / x_scale
@@ -309,7 +321,8 @@ class CorrectDar(BasePrimitive):
 
         # update header
         self.action.args.ccddata.header['HISTORY'] = log_string
-        self.action.args.ccddata.header['DARCOR'] = (True, 'DAR corrected?')
+        self.action.args.ccddata.header['DARCOR'] = (apply_dar,
+                                                     'DAR corrected?')
         self.action.args.ccddata.header['DARANG'] = (projection_angle_deg,
                                                      'DAR projection angle '
                                                      '(deg)')
