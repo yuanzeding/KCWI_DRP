@@ -64,7 +64,7 @@ setup(name=NAME,
                         'jinja2~=3.0.3',
                         'psutil~=5.7.0',
                         'pytest~=5.4.1',
-                        'keckdrpframework',
+                        'keckdrpframework~=0.1.dev0',
                         'requests',
                         'pandas~=1.5.3',
                         'matplotlib~=3.7',
@@ -73,5 +73,5 @@ setup(name=NAME,
                         'cython',
                         'selenium',
                         'phantomjs'],
-      python_requires="~=3.7"
+      python_requires="~=3.11"
       )

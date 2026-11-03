@@ -36,7 +36,12 @@ class FlagSaturation(BasePrimitive):
         # Create flags for saturated pixels
         flags = np.zeros(self.action.args.ccddata.data.shape, dtype=np.uint8)
 
-        sat = np.where(self.action.args.ccddata.data > 60000)
+        if self.action.args.camera == 0:  # Blue
+            sat = np.where(self.action.args.ccddata.data > 65534)
+        elif self.action.args.camera == 1:  # Red
+            sat = np.where(self.action.args.ccddata.data > 62000)
+        else:
+            self.logger.error("Camera keyword not defined!") 
         flags[sat] += 8
         number_of_sat_pixels = np.sum(sat)
 

@@ -391,10 +391,10 @@ class MakeMasterFlat(BaseImg):
         if ymap is not None:
             self.logger.info("Using ymap to limit yrange of data in qref")
             qref = [i for i in q if ffleft <= posmap.data.flat[i] <= ffright and
-                    50 <= ymap.data.flat[i] <= (ny-50)]
+                    50 <= ymap.data.flat[i] <= (ny-50)] # qref is q limited to good y range and within ffleft and ffright (limited in position within ref. slice)
         else:
             qref = [i for i in q if ffleft <= posmap.data.flat[i] <= ffright]
-        xfr = wavemap.data.flat[qref]
+        xfr = wavemap.data.flat[qref] # xfr and yfr are wavelength and flat data on reference slice, within given wavelength range and position range
         yfr = newflat.flat[qref]
         # sort on wavelength
         s = np.argsort(xfr)
@@ -888,7 +888,7 @@ class MakeMasterFlat(BaseImg):
         # OK, Now we have extended to the full range... so... we are going to
         # make a ratio flat!
         comflat = np.zeros(newflat.shape, dtype=float)
-        qz = [i for i, v in enumerate(wavemap.data.flat) if v >= 0]
+        qz = [i for i, v in enumerate(wavemap.data.flat) if v >= 0] # qz is all points with a valid wavelength
 
         comvals = sftall.value(wavemap.data.flat[qz])
 
@@ -903,7 +903,7 @@ class MakeMasterFlat(BaseImg):
             ratio.flat[qq] = 0.0
 
         # trim the high points near edges of slice
-        qq = [i for i, v in enumerate(ratio.flat) if v >= 3. and
+        qq = [i for i, v in enumerate(ratio.flat) if v >= 20. and
               (posmap.data.flat[i] <= 4/xbin or
                posmap.data.flat[i] >= 136/xbin)]
         if len(qq) > 0:
@@ -913,6 +913,26 @@ class MakeMasterFlat(BaseImg):
         qq = [i for i, v in enumerate(newflat.flat) if v < 30.]
         if len(qq) > 0:
             ratio.flat[qq] = 1.0
+
+        # =====================================================================
+        # NEW: Stop normalizing at the Blue Camera Dichroic Cutoff
+        # =====================================================================
+        if False:#self.action.args.camera == 0:  # If Blue Camera
+            self.logger.info("Applying dichroic cutoff mask for Blue camera")
+            
+            # Start the cutoff just past the 5577 sky line mask window
+            dichroic_cutoff_wave = 5583.0 
+            
+            # Find all pixels where the assigned wavelength is beyond the cutoff
+            q_dichroic = [i for i, v in enumerate(wavemap.data.flat) if v > dichroic_cutoff_wave]
+            
+            if len(q_dichroic) > 0:
+                # Force the correction ratio to exactly 1.0 (do nothing)
+                ratio.flat[q_dichroic] = 1.0
+                self.logger.info("Forced %d pixels beyond %.1f A to ratio=1.0" % 
+                                 (len(q_dichroic), dichroic_cutoff_wave))
+        # =====================================================================
+
 
         # get master flat output name
         mfname = stack_list[0].split('.fits')[0] + '_' + suffix + '.fits'

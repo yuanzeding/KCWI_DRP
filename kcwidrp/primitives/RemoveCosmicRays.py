@@ -48,7 +48,8 @@ class RemoveCosmicRays(BasePrimitive):
         if nshuf * ttime > exptime:
             exptime = nshuf * ttime
         #self.logger.info(f"CRMSK:{self.config.instrument.crmsk}")
-        if (self.config.instrument.crmsk == "False") or ('BLUE' in self.action.args.ccddata.header['CAMERA'].upper()):
+        crmskName = self.action.args.name.replace('.fits', '_crmsk.fits')
+        if (self.config.instrument.crmsk == False) or ('BLUE' in self.action.args.ccddata.header['CAMERA'].upper()) or (not os.path.isfile(f"{self.config.instrument.output_directory}/{crmskName}")):
             self.logger.info('No custom CR mask, proceeding with astroscrappy')
             if exptime >= self.config.instrument.CRR_MINEXPTIME:
 
@@ -145,8 +146,7 @@ class RemoveCosmicRays(BasePrimitive):
                 header[key] = (False, keycom)
                 header['NCRCLEAN'] = (0, "number of cosmic ray pixels")
         else: # we do have a mask
-            crmskName = self.action.args.name.replace('.fits', '_crmsk.fits')
-
+            
             if os.path.isfile(f"{self.config.instrument.output_directory}/{crmskName}"):
                 self.logger.info(f'Opening {crmskName}')
                 cr = fits.open(f"{self.config.instrument.output_directory}/{crmskName}")
@@ -158,7 +158,7 @@ class RemoveCosmicRays(BasePrimitive):
                 header['history'] = f"{crmskName} cleaned cosmic rays"
 
                 # have recovery file?
-                crmskRecName = self.action.args.name.replace('.fits', '_crmsk_recover.reg')
+                crmskRecName = self.action.args.name.replace('.fits', '_bcrmsk.reg')
                 if os.path.isfile(f"{self.config.instrument.output_directory}/{crmskRecName}"):
                     self.logger.info(f'CR mask recoverty file detected, opening {crmskRecName}')
                     # load the region file
@@ -228,8 +228,38 @@ class RemoveCosmicRays(BasePrimitive):
 
                 if self.config.instrument.extra_CRR == "True":
                     self.logger.info("Astroscrappy: running extra CRR")
+
+                    # Protection mask for the extra pass, read exactly as in the
+                    # astroscrappy branch above. Without an inmask this second
+                    # run sees a bright QSO core, which varies from frame to
+                    # frame with seeing and transparency, as a cosmic ray and
+                    # replaces it -- the same failure the bcrmsk exists to stop
+                    # in the first pass. The custom crmsk applied just above
+                    # does not protect anything here: it only says which pixels
+                    # were already cleaned.
+                    bcrinmask = None
+                    if 'OBJECT' in self.action.args.ccddata.header['IMTYPE']:
+                        if (self.config.instrument.bcrmsk == True):
+                            bcrmskName = self.action.args.name.replace(
+                                '.fits', '_intf_bcrmsk.fits')
+                            if os.path.isfile(f"{self.config.instrument.output_directory}/{bcrmskName}"):
+                                self.logger.info(f'Opening {bcrmskName}')
+                                bcr = fits.open(f"{self.config.instrument.output_directory}/{bcrmskName}")
+                                # the file is written as uint8 (1 = protect), so
+                                # compare before using it as a boolean inmask
+                                bcrinmask = (bcr[0].data == 1)
+                                bcr.close()
+                                self.logger.info(
+                                    "CR INMASK inputted to the extra CRR pass "
+                                    f"({int(bcrinmask.sum())} pixels protected)")
+                                header['history'] = \
+                                    f"{bcrmskName} protected from extra CRR"
+                            else:
+                                self.logger.info(
+                                    'No CR INMASK found for the extra CRR pass')
+
                     mask, clean = detect_cosmics(
-                        self.action.args.ccddata.data, gain=1.0, readnoise=read_noise,
+                        self.action.args.ccddata.data, inmask=bcrinmask, gain=1.0, readnoise=read_noise,
                         psffwhm=self.config.instrument.CRR_PSFFWHM,
                         sigclip=sigclip,
                         sigfrac=self.config.instrument.CRR_SIGFRAC,
