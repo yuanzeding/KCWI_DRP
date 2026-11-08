@@ -16,7 +16,7 @@ class FlagSaturation(BasePrimitive):
 
     Uses the following configuration parameter:
 
-        * saveintims: if set to ``True`` write out a flagged version of image in \*_fsat.fits.  Defaults to ``False``.
+        * saveintims: if set to ``True`` write out a flagged version of image in *_fsat.fits.  Defaults to ``False``.
 
     Updates the flag extension of the image in the returned arguments.
 
@@ -36,18 +36,20 @@ class FlagSaturation(BasePrimitive):
         # Create flags for saturated pixels
         flags = np.zeros(self.action.args.ccddata.data.shape, dtype=np.uint8)
 
-        if self.action.args.camera == 0:  # Blue
-            sat = np.where(self.action.args.ccddata.data > 65534)
+        # saturation level per camera (ADU)
+        if self.action.args.camera == 0:    # Blue
+            sat_level = 65534
         elif self.action.args.camera == 1:  # Red
-            sat = np.where(self.action.args.ccddata.data > 62000)
+            sat_level = 62000
         else:
-            self.logger.error("Camera keyword not defined!") 
-        flags[sat] += 8
-        number_of_sat_pixels = np.sum(sat)
+            self.logger.error("Camera keyword not defined, using 60000 ADU")
+            sat_level = 60000
 
-        sat = np.where(self.action.args.ccddata.data == 0)
+        data = self.action.args.ccddata.data
+        # saturated pixels, and dead pixels reading exactly 0
+        sat = (data > sat_level) | (data == 0)
         flags[sat] += 8
-        number_of_sat_pixels += np.sum(sat)
+        number_of_sat_pixels = int(sat.sum())
 
         self.action.args.ccddata.header[key] = (True, keycom)
 

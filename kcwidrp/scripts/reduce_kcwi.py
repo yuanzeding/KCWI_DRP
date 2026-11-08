@@ -27,6 +27,17 @@ from kcwidrp.core.kcwi_proctab import Proctab
 import logging.config
 
 
+def _cfg_bool(section, key, default=False):
+    """
+    Boolean from a kcwi.cfg section dict (ConfigClass returns section values as
+    raw strings, inline '# comments' included). Missing key -> default.
+    """
+    if not section or key not in section:
+        return default
+    value = str(section[key]).split('#')[0].strip().lower()
+    return value in ('1', 'true', 'yes', 'on')
+
+
 def _parse_arguments(in_args: list) -> argparse.Namespace:
     description = "KCWI pipeline CLI (last modified by NZP on 7/7/2022)"
 
@@ -383,9 +394,15 @@ def main():
             kcwi_config.BLUE['minoscanpix'])
         framework.config.instrument.oscanbuf = int(
             kcwi_config.BLUE['oscanbuf'])
+        # astroscrappy protection mask (<frame>_intf_bcrmsk.fits) for blue science frames
+        framework.config.instrument.bcrmsk = _cfg_bool(kcwi_config.BLUE, 'bcrmsk', False)
+        framework.config.instrument.crmsk = False
+        framework.config.instrument.extra_CRR = False
     elif args.red:
-        framework.config.instrument.crmsk = kcwi_config.RED['crmsk']
-        framework.config.instrument.extra_CRR = kcwi_config.RED['extra_crr']
+        # cosmic-ray options (booleans; missing keys fall back to the defaults)
+        framework.config.instrument.crmsk = _cfg_bool(kcwi_config.RED, 'crmsk', False)
+        framework.config.instrument.extra_CRR = _cfg_bool(kcwi_config.RED, 'extra_crr', False)
+        framework.config.instrument.bcrmsk = _cfg_bool(kcwi_config.RED, 'bcrmsk', False)
         framework.config.instrument.arc_min_nframes = int(
             kcwi_config.RED['arc_min_nframes'])
         framework.config.instrument.contbars_min_nframes = int(

@@ -37,6 +37,26 @@ Status of tests:
    :target: https://travis-ci.com/Keck-DataReductionPipelines/KCWI_DRP
 
 
+KCWIKit fork
+------------
+
+This repository is the fork of the official DRP maintained alongside
+`KCWIKit <https://github.com/yuanzeding/kcwi>`_. Relative to the official
+1.1.1 release it adds sine clock-pattern subtraction, a flat-field priority
+list, configurable interpolation orders and DAR options (``DAR_wref``,
+``DAR_apply``), red-channel cosmic-ray masks from a comparison of frames
+(``crmsk``, ``extra_crr``), a protection mask that keeps astroscrappy from
+cleaning bright variable sources (``bcrmsk``), camera-specific saturation
+levels and the partial-run stages ``-st ff`` / ``-st cr``. All options are
+set in ``kcwidrp/configs/kcwi.cfg``; the full list with dates is in
+``changelog.txt`` (section "KCWIKit fork"), and the reduction workflow is
+described in the KCWIKit documentation
+(`blue <https://github.com/yuanzeding/kcwi/blob/dev/kcwikit/docs/Running_blue_DRP.md>`_,
+`red <https://github.com/yuanzeding/kcwi/blob/dev/kcwikit/docs/Running_red_DRP.md>`_).
+
+Some of these features have not been tested beyond the data they were
+written for; please report problems through the KCWIKit issue tracker.
+
 Dependencies
 ------------
 

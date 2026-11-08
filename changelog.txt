@@ -15,3 +15,66 @@
 	-Enabled -i CLI option
 	-Fixed bug where bad pixels would cause entire slices to be masked, instead of single pixels
 	-Added changelog
+
+KCWIKit fork (branch old-state / KCWIKit) -- changes relative to the official 1.1.1
+===================================================================================
+Authors: YC = Yuguang Chen, ZZ = Zhuyun Zhuang, NP = Nikolaus Prusinski, YD = Yuanze Ding.
+Options marked [cfg] live in kcwidrp/configs/kcwi.cfg.
+
+2026-11 (review fixes, YD):
+	-RemoveCosmicRays.py restructured: one protection-mask loader (<frame>_intf_bcrmsk.fits,
+	 1 = protect, read with == 1 and closed) and one astroscrappy runner shared by the first
+	 and the extra pass; the duplicated read-noise/sigclip/history block is gone
+	-The recovery-region path (<frame>_bcrmsk.reg un-masking pixels of a _crmsk.fits) is
+	 removed; <frame>_bcrmsk.reg / _intf_bcrmsk.fits now has one meaning only, the
+	 astroscrappy protection mask written by kcwi_automask --bcrmsk / kcwi_masksky_ds9_bcrr
+	-Config booleans crmsk, extra_crr, bcrmsk are parsed the same way whatever form they
+	 arrive in (ConfigClass returns section values as raw strings, attributes as typed values
+	 or None); reduce_kcwi sets all three explicitly for both channels; the shipped kcwi.cfg
+	 gains extra_crr and bcrmsk under [RED] and bcrmsk under [KCWI] (previously a missing
+	 key gave KeyError: 'extra_crr' with -r, and crmsk = False had no effect)
+	-FlagSaturation.py: boolean saturation mask, NSATFLAG is a pixel count (was a sum of
+	 pixel indices), unknown camera falls back to 60000 ADU instead of an UnboundLocalError
+	-np.cast["bool"] (removed in NumPy 2) replaced by .astype(bool)
+
+2026-11-02 (58bd5bf, YD):
+	-RemoveCosmicRays.py: the extra astroscrappy pass after a custom crmsk also receives the
+	 protection mask, so a bright QSO core is not cleaned as a cosmic ray on the second pass
+	-FlagSaturation.py: camera-specific saturation levels (blue 65534, red 62000 ADU)
+	-MakeMasterFlat.py: edge-ratio clipping threshold 3 -> 20; a (disabled) dichroic-cutoff
+	 block for the blue camera is present as `if False:` for future testing
+	-flat_remove_crs step commented out in kcwi_pipeline.py, kcwi_pipeline1.py,
+	 kcwi_pipeline_ff.py (no CR rejection on flats)
+	-setup.py: numpy~=1.23.1, pandas~=1.5.3, keckdrpframework~=0.1.dev0, python_requires ~=3.11
+
+2026-10-08 (4d7f9d8):
+	-DAR_apply [cfg]: set False to skip the DAR shift for science frames (e.g. to apply DAR
+	 while drizzling in KcwiKit); padding and DAR keywords are still written, DARCOR records
+	 the actual state, standard stars are always corrected
+
+2025-06-06 (757b7da, YD):
+	-RemoveCosmicRays.py: red-channel custom CR masks (<frame>_crmsk.fits from
+	 kcrm_create_crmsk) with an optional extra astroscrappy pass (extra_crr [cfg]); blue
+	 protection mask (bcrmsk [cfg], <frame>_intf_bcrmsk.fits) handed to astroscrappy as inmask
+	-SubtractScatteredLight.py: Savitzky-Golay polynomial order 3 -> 6 (first fit) / 5 (refit)
+	-.gitignore: .DS_Store
+
+2024-10-07 ... 2024-10-21 (NP, YC):
+	-kcwi_pipeline_cr.py and `reduce_kcwi -st cr`: run stage 1 up to cosmic-ray rejection only
+	-kcwi_pipeline2.py: calibration process_* entries re-enabled, MakeMasterObject step removed
+	-MakeCube.py: MASK and FLAGS warped with constant fill values (cval 1 / 64) outside the field
+	-framework.cfg: want_multiprocessing = False
+	-setup.py: pandas pin for Apple M1
+
+2024-08-21 ... 2024-09-11 (YC, ZZ):
+	-SubtractSinePattern.py: sine clock-pattern subtraction (subtract_sine [cfg]), with clobber
+	-Flat-field priority list flat_order [cfg] (MTWIF, MFLAT, MDOME)
+	-warp_order [cfg] for MakeCube, DAR_shift_order [cfg] for CorrectDar, wave_interp_order [cfg]
+	-DAR_wref [cfg]: reference wavelength for the DAR correction ('None' = WAVMID)
+	-Bad-pixel flags for flats; sigma rejection in the standard-star fit (MakeInvsens)
+	-crmsk handling restricted to the red channel
+	-kcwi_pipeline_ff.py and `reduce_kcwi -st ff`: stages 1-4 only (until _intf)
+	-setup.py updated for Apple M1
+
+Documentation for using this fork with KCWIKit:
+	https://github.com/yuanzeding/kcwi/blob/dev/kcwikit/docs/install_DRP.md
